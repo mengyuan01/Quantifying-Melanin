@@ -1,0 +1,229 @@
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QApplication, QMainWindow
+import os
+import json
+import cv2
+import numpy as np
+import pandas as pd
+
+
+class Ui_MainWindow(object):
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(608, 395)
+        MainWindow.setAnimated(True)
+        self.basewidget = QtWidgets.QWidget(MainWindow)
+        self.basewidget.setObjectName("basewidget")
+        self.lineEdit = QtWidgets.QLineEdit(self.basewidget)
+        self.lineEdit.setGeometry(QtCore.QRect(150, 115, 100, 30))
+        self.lineEdit.setObjectName("lineEdit")
+        self.lineEdit_2 = QtWidgets.QLineEdit(self.basewidget)
+        self.lineEdit_2.setGeometry(QtCore.QRect(150, 255, 340, 30))
+        self.lineEdit_2.setObjectName("lineEdit_2")
+        self.pushButton = QtWidgets.QPushButton(self.basewidget)
+        self.pushButton.setGeometry(QtCore.QRect(410, 290, 75, 23))
+        self.pushButton.setStyleSheet("font: 9pt \"微软雅黑\";")
+        self.pushButton.setObjectName("pushButton")
+        self.label = QtWidgets.QLabel(self.basewidget)
+        self.label.setGeometry(QtCore.QRect(50, 120, 90, 20))
+        self.label.setStyleSheet("font: 9pt \"微软雅黑\"")
+        self.label.setObjectName("label")
+        self.label_2 = QtWidgets.QLabel(self.basewidget)
+        self.label_2.setGeometry(QtCore.QRect(50, 260, 90, 20))
+        self.label_2.setStyleSheet("font: 9pt \"微软雅黑\"")
+        self.label_2.setObjectName("label_2")
+        self.label_3 = QtWidgets.QLabel(self.basewidget)
+        self.label_3.setGeometry(QtCore.QRect(50, 50, 90, 20))
+        self.label_3.setStyleSheet("font: 9pt \"微软雅黑\"")
+        self.label_3.setObjectName("label_3")
+        self.lineEdit_3 = QtWidgets.QLineEdit(self.basewidget)
+        self.lineEdit_3.setGeometry(QtCore.QRect(150, 45, 340, 30))
+        self.lineEdit_3.setObjectName("lineEdit_3")
+        self.comboBox = QtWidgets.QComboBox(self.basewidget)
+        self.comboBox.setGeometry(QtCore.QRect(150, 185, 100, 30))
+        self.comboBox.setStyleSheet("font: 9pt \"微软雅黑\";")
+        self.comboBox.setObjectName("comboBox")
+        self.comboBox.addItem("")
+        self.comboBox.addItem("")
+        self.label_4 = QtWidgets.QLabel(self.basewidget)
+        self.label_4.setGeometry(QtCore.QRect(50, 190, 90, 20))
+        self.label_4.setStyleSheet("font: 9pt \"微软雅黑\"")
+        self.label_4.setObjectName("label_4")
+        MainWindow.setCentralWidget(self.basewidget)
+
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.pushButton.setText(_translate("MainWindow", "OK"))
+        self.label.setText(_translate("MainWindow", "Thresholder:"))  # 修改了这里
+        self.label_2.setText(_translate("MainWindow", "Export Folder:"))
+        self.label_3.setText(_translate("MainWindow", "Import Folder:"))
+        self.comboBox.setItemText(0, _translate("MainWindow", "f(x)"))
+        self.comboBox.setItemText(1, _translate("MainWindow", "f(x)(256-x)"))
+        self.label_4.setText(_translate("MainWindow", "Formula:"))
+
+        # Connect button click event
+        self.pushButton.clicked.connect(self.on_pushButton_clicked)
+
+    def on_pushButton_clicked(self):
+        # Get user inputs
+        image_dir = self.lineEdit_3.text()
+        json_dir = self.lineEdit_3.text()  # Assuming the same directory for simplicity
+        output_dir = self.lineEdit_2.text()
+
+        # Debugging output
+        print(f"Image Directory: {image_dir}")
+        print(f"JSON Directory: {json_dir}")
+        print(f"Output Directory: {output_dir}")
+
+        try:
+            thresholder_value = float(self.lineEdit.text())
+            print(f"Threshold Value: {thresholder_value}")
+        except ValueError:
+            print("Invalid input for Thresholder value.")
+            return
+
+        # Determine which formula to use based on the comboBox selection
+        selected_formula = self.comboBox.currentText()
+        print(f"Selected Formula: {selected_formula}")
+
+        if selected_formula == "f(x)":
+            process_images(image_dir, json_dir, output_dir, thresholder_value, calculate_integral_f_x, self.close_window)
+        elif selected_formula == "f(x)(256-x)":
+            process_images(image_dir, json_dir, output_dir, thresholder_value, calculate_integral_f_x_times_256_minus_x,
+                           self.close_window)
+        else:
+            print("Selected formula not implemented.")
+
+    def close_window(self):
+        self.MainWindow.close()
+
+
+def load_labelme_json(json_path):
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    shapes = data['shapes']
+    return shapes
+
+
+def get_mask(image_shape, points):
+    mask = np.zeros(image_shape[:2], dtype=np.uint8)
+    points = np.array(points, dtype=np.int32)
+    cv2.fillPoly(mask, [points], 255)
+    return mask
+
+
+def calculate_histogram(image, mask):
+    hist = cv2.calcHist([image], [0], mask, [256], [0, 256])
+    return hist
+
+
+def calculate_integral_f_x(hist, lower_bound, upper_bound):
+    bins = np.arange(256)
+    integrand = hist.flatten()
+    integral = np.trapz(integrand, bins)
+    relevant_bins = (bins >= lower_bound) & (bins <= upper_bound)
+    relevant_integrand = integrand[relevant_bins]
+    relevant_bins = bins[relevant_bins]
+    bounded_integral = np.trapz(relevant_integrand, relevant_bins)
+    return bounded_integral
+
+
+def calculate_integral_f_x_times_256_minus_x(hist, lower_bound, upper_bound):
+    bins = np.arange(256)
+    integrand = hist.flatten() * (256 - bins)
+    integral = np.trapz(integrand, bins)
+    relevant_bins = (bins >= lower_bound) & (bins <= upper_bound)
+    relevant_integrand = integrand[relevant_bins]
+    relevant_bins = bins[relevant_bins]
+    bounded_integral = np.trapz(relevant_integrand, relevant_bins)
+    return bounded_integral
+
+
+def calculate_ratio(hist, calculate_integral, thresholder_value):
+    integral_full_range = calculate_integral(hist, 0, 255)
+    integral_partial_range = calculate_integral(hist, 0, thresholder_value)
+    ratio = integral_partial_range / integral_full_range if integral_full_range > 0 else 0
+    return ratio
+
+
+def save_ratios_to_excel(image_filenames, ratios, output_dir):
+    df = pd.DataFrame({
+        'Image Filename': image_filenames,
+        'Mel': ratios  # Changed column name from 'Ratio' to 'Mel'
+    })
+    df.to_excel(os.path.join(output_dir, 'mel.xlsx'), index=False)  # Changed file name to 'mel.xlsx'
+
+
+def process_images(image_dir, json_dir, output_dir, thresholder_value, calculate_integral, close_callback):
+    # Get the image files
+    image_files = [f for f in os.listdir(image_dir) if f.endswith(('.tif', '.jpg', '.png'))]
+    num_images = len(image_files)
+
+    # Print the number of images
+    print(f"Number of images: {num_images}")
+
+    # Ensure the output directory exists
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Initialize lists to store ratios and image filenames
+    ratios = []
+    image_filenames = []
+
+    # Iterate over all files in the image folder
+    for index, image_filename in enumerate(image_files):
+        # Load the image
+        image_path = os.path.join(image_dir, image_filename)
+        image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+        # Check if the image was loaded successfully
+        if image is None:
+            print(f"Warning: Could not read the image at {image_path}. Skipping this file.")
+            continue  # Skip to the next iteration of the loop
+
+        # Corresponding JSON file
+        json_filename = os.path.splitext(image_filename)[0] + '.json'
+        json_path = os.path.join(json_dir, json_filename)
+
+        # Load the annotation data
+        shapes = load_labelme_json(json_path)
+
+        for i, shape in enumerate(shapes):
+            if shape['shape_type'] == 'polygon':
+                # Get the polygon points
+                points = shape['points']
+                # Generate the mask
+                mask = get_mask(image.shape, points)
+                # Calculate the histogram
+                hist = calculate_histogram(image, mask)
+
+                # Calculate the ratio of the integrals
+                ratio = calculate_ratio(hist, calculate_integral, thresholder_value)
+
+                # Add the ratio to the list
+                ratios.append(ratio)
+                # Add the image filename to the list
+                image_filenames.append(image_filename)
+
+    # Save the ratios to an Excel file
+    save_ratios_to_excel(image_filenames, ratios, output_dir)
+
+    # Call the close callback function
+    close_callback()
+
+
+if __name__ == '__main__':
+    import sys
+    from PyQt5.QtWidgets import QApplication, QMainWindow
+
+    app = QApplication(sys.argv)
+    MainWindow = QMainWindow()
+    ui = Ui_MainWindow()
+    ui.MainWindow = MainWindow  # Store the reference to the main window
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec_())

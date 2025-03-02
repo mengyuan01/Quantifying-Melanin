@@ -3,4 +3,4 @@ Procedure: prepare the images; generate mask using sam; select mask by setting c
 1.white balance process_wb.py
 2.generating and selecting mask of zebrafish_bestmask.py
 3.manully select mask & calculating melanin ratio_allmask.py
-4.collecting ratio data to excel_allratio.py
+4.collecting ratio data to excel_ratio.py

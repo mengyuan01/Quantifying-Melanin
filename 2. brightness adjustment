@@ -1,0 +1,69 @@
+from PIL import Image, ImageEnhance
+import os
+import numpy as np
+
+# 设置输入和输出目录
+input_dir = 
+output_dir =
+reference_image_path = "亮度调整参考图像.jpg"
+
+# 确保输出目录存在
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# 计算参考图像的平均亮度
+def calculate_average_brightness(image):
+    # 转换为灰度图
+    gray_image = image.convert('L')
+    # 计算平均亮度
+    return np.mean(gray_image)
+
+# 打开参考图像并计算平均亮度
+try:
+    reference_image = Image.open(reference_image_path)
+    reference_brightness = calculate_average_brightness(reference_image)
+    print(f"参考图像的平均亮度: {reference_brightness:.2f}")
+except Exception as e:
+    print(f"无法打开参考图像: {e}")
+    exit()
+
+# 打印输入目录内容以确认
+print(f"输入目录内容: {os.listdir(input_dir)}")
+
+# 遍历输入目录中的所有JPEG文件
+for filename in os.listdir(input_dir):
+    if filename.lower().endswith(('.jpg', '.jpeg')):
+        # 打开图像
+        img_path = os.path.join(input_dir, filename)
+        try:
+            img = Image.open(img_path)
+            print(f"成功打开图像: {filename}")
+        except Exception as e:
+            print(f"无法打开图像 {filename}: {e}")
+            continue
+
+        # 计算当前图像的平均亮度
+        current_brightness = calculate_average_brightness(img)
+        print(f"当前图像 '{filename}' 的平均亮度: {current_brightness:.2f}")
+
+        # 计算亮度调整因子
+        if current_brightness == 0:  # 避免除零错误
+            print(f"警告: 图像 '{filename}' 的平均亮度为 0，跳过调整")
+            continue
+        else:
+            brightness_factor = reference_brightness / current_brightness
+        print(f"亮度调整因子: {brightness_factor:.2f}")
+
+        # 调整亮度
+        enhancer = ImageEnhance.Brightness(img)
+        img_enhanced = enhancer.enhance(brightness_factor)
+
+        # 保存调整后的图像到输出目录
+        output_path = os.path.join(output_dir, filename)
+        try:
+            img_enhanced.save(output_path)
+            print(f"成功保存图像: {output_path}")
+        except Exception as e:
+            print(f"无法保存图像 {output_path}: {e}")
+
+print("亮度调整完成！")

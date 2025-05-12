@@ -7,84 +7,56 @@ import matplotlib.pyplot as plt
 from skimage.measure import label, regionprops, euler_number
 from segment_anything import SamAutomaticMaskGenerator, sam_model_registry
 
-
 def select_target_mask(masks):
     """根据多条件筛选最优掩码"""
     candidates = []
-
     for mask_data in masks:
         mask = mask_data["segmentation"]
         h, w = mask.shape
 
-        # 条件：严格边界检查（排除任何接触边界的掩码）
-        if (np.any(mask[0, :]) or  # 上边界
-                np.any(mask[-1, :]) or  # 下边界
-                np.any(mask[:, 0]) or  # 左边界
-                np.any(mask[:, -1])):  # 右边界
+        # 边界检查
+        if np.any(mask[0, :]) or np.any(mask[-1, :]) or np.any(mask[:, 0]) or np.any(mask[:, -1]):
             continue
 
         # 计算特征
         area_ratio = np.sum(mask) / (h * w)
         euler = euler_number(mask)
 
-        # 计算区域属性
+        # 硬性条件过滤
+        if not (0.02 <= area_ratio <= 0.07 and euler == 1):
+            continue
+
+        # 区域属性分析
         labeled = label(mask)
         regions = regionprops(labeled)
         if not regions:
             continue
         main_region = max(regions, key=lambda x: x.area)
 
-        # 计算横向中心偏移量
+        # 特征计算
         y_centroid, x_centroid = main_region.centroid
-        x_offset = abs(x_centroid - (w / 2))  # 横向中心偏移量（像素单位）
-
-        if x_offset > 160:
-            continue
-
-        # 计算固体度
-        labeled = label(mask)
-        regions = regionprops(labeled)
-        if not regions:
-            continue
-        main_region = max(regions, key=lambda x: x.area)
-        solidity = main_region.solidity
-
-        # 条件判断
-        conditions = {
-            'area': 0.05 <= area_ratio <= 0.28,
-            'euler': euler == 1,
-            'solidity': solidity >= 0.6
-        }
-        score = sum(conditions.values())
-
-        # 面积接近度（用于平局排序）
-        area_diff = abs(area_ratio - 0.2)
+        x_offset = abs(x_centroid - (w / 2))
+        acura = (x_offset / 20000) + abs(area_ratio - 0.035)
 
         candidates.append({
             'mask_data': mask_data,
-            'score': score,
-            'area_diff': area_diff,
             'features': {
                 'area_ratio': area_ratio,
                 'euler': euler,
-                'solidity': solidity,
-                'x_offset': x_offset
+                'x_offset': x_offset,
+                'acura': acura
             }
         })
+
     if not candidates:
         return None
 
-    # 排序逻辑
-    sorted_candidates = sorted(candidates,
-                               key=lambda x: (-x['score'],
-                                              x['area_diff'],
-                                              x['features']['x_offset']))
+    # 按acura值排序
+    sorted_candidates = sorted(candidates, key=lambda x: x['features']['acura'])
     best = sorted_candidates[0]
-
-    print(f"最优掩码得分：{best['score']}/3 面积比：{best['features']['area_ratio']:.3f} "
-          f"欧拉数：{best['features']['euler']} 横轴偏移度：{best['features']['x_offset']:.1f}")
-
-    return best['mask_data'] if best['score'] > 0 else None
+    
+    print(f"最优掩码 | Acura：{best['features']['acura']:.3f} | 偏移：{best['features']['x_offset']:.1f}px")
+    return best['mask_data']
 
 
 # 配置参数

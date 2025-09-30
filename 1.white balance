@@ -37,7 +37,7 @@ def process_folder(input_folder, output_folder):
         try:
             img_path = os.path.join(input_folder, filename)
             img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # 转换为RGB格式
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) 
 
             balanced = gray_world_balance(img)
 
@@ -49,9 +49,10 @@ def process_folder(input_folder, output_folder):
 
 
 if __name__ == "__main__":
-    INPUT_FOLDER = r"" 
-    OUTPUT_FOLDER = r"" 
+    INPUT_FOLDER = 
+    OUTPUT_FOLDER = 
 
     process_folder(INPUT_FOLDER, OUTPUT_FOLDER)
     print("\n处理完成！输出目录：", OUTPUT_FOLDER)
+
 

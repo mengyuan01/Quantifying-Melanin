@@ -58,7 +58,7 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.pushButton.setText(_translate("MainWindow", "OK"))
-        self.label.setText(_translate("MainWindow", "Thresholder:"))  # 修改了这里
+        self.label.setText(_translate("MainWindow", "Thresholder:")) 
         self.label_2.setText(_translate("MainWindow", "Export Folder:"))
         self.label_3.setText(_translate("MainWindow", "Import Folder:"))
         self.comboBox.setItemText(0, _translate("MainWindow", "f(x)"))
